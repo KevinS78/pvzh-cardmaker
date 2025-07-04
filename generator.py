@@ -299,24 +299,25 @@ class ImageGeneratorApp:
         if selected_type == "Minion":
             base.paste(hp_resized, (x_hp, y_hp), mask=hp_resized)
 
-            if atktype == "Overshoot":
-                base.paste(atk_resized, (x_atk - 22, y_atk - 20), mask=atk_resized)
-            else:
-                base.paste(atk_resized, (x_atk, y_atk), mask=atk_resized)
-
-            for dx in [-stroke_width, 0, stroke_width]:
-                for dy in [-stroke_width, 0, stroke_width]:
-                    if dx != 0 or dy != 0:
-                        draw.text((x_atk_text + dx, y_atk_text + dy), attack, font=font_icon, fill=outline_color)
-
-            draw.text((x_atk_text, y_atk_text), attack, font=font_icon, fill="white")
-
             for dx in [-stroke_width, 0, stroke_width]:
                 for dy in [-stroke_width, 0, stroke_width]:
                     if dx != 0 or dy != 0:
                         draw.text((x_hp_text + dx, y_hp_text + dy), health, font=font_icon, fill=outline_color)
 
             draw.text((x_hp_text, y_hp_text), health, font=font_icon, fill="white")
+
+            if attack != "0":
+                if atktype == "Overshoot":
+                    base.paste(atk_resized, (x_atk - 22, y_atk - 20), mask=atk_resized)
+                else:
+                    base.paste(atk_resized, (x_atk, y_atk), mask=atk_resized)
+
+                for dx in [-stroke_width, 0, stroke_width]:
+                    for dy in [-stroke_width, 0, stroke_width]:
+                        if dx != 0 or dy != 0:
+                            draw.text((x_atk_text + dx, y_atk_text + dy), attack, font=font_icon, fill=outline_color)
+                
+                draw.text((x_atk_text, y_atk_text), attack, font=font_icon, fill="white")
 
         # Display ability text
         font_ability = ImageFont.truetype(FONT_PATH, 30)
