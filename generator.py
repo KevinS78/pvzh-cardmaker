@@ -33,17 +33,17 @@ class ImageGeneratorApp:
 
         # --- Dropdowns and input fields ---
 
-        tk.Label(self.left_frame, text="Class", font=self.ui_font).grid(row=0, column=0, sticky="w")
+        tk.Label(self.left_frame, text="Class:", font=self.ui_font).grid(row=0, column=0, sticky="w")
         self.family = tk.StringVar()
         tk.OptionMenu(self.left_frame, self.family, "Guardian", "Kabloom", "MegaGrow", "Smarty", "Solar", "Beastly", "Brainy", "Crazy", "Hearty", "Sneaky").grid(row=0, column=1, sticky="w")
         self.family.set("Guardian")
 
-        tk.Label(self.left_frame, text="Type", font=self.ui_font).grid(row=0, column=2, sticky="w")
+        tk.Label(self.left_frame, text="Type:", font=self.ui_font).grid(row=0, column=2, sticky="w")
         self.cardtype = tk.StringVar()
         tk.OptionMenu(self.left_frame, self.cardtype, "Minion", "Trick", "Environment").grid(row=0, column=3, sticky="w")
         self.cardtype.set("Minion")
 
-        tk.Label(self.left_frame, text="Rarity", font=self.ui_font).grid(row=1, column=0, sticky="w")
+        tk.Label(self.left_frame, text="Rarity:", font=self.ui_font).grid(row=1, column=0, sticky="w")
         self.rarity = tk.StringVar()
         tk.OptionMenu(self.left_frame, self.rarity, "Token", "Common", "Uncommon", "Rare", "SuperRare", "Legendary", "Event").grid(row=1, column=1, sticky="w")
         self.rarity.set("Common")
