@@ -14,7 +14,7 @@ class ImageGeneratorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("PvZ Heroes Card Generator")
-        self.ui_font = tkfont.Font(family="Georgia", size=24)
+        self.ui_font = tkfont.Font(family="Georgia", size=18)
         self.user_image_path = None
 
         # --- Load background image ---
@@ -90,10 +90,26 @@ class ImageGeneratorApp:
         self.flavor = tk.Text(self.left_frame, width=50, height=3)
         self.flavor.grid(row=7, column=1, columnspan=5, sticky="w")
 
-        # --- Buttons ---
+        # --- Buttons and sliders ---
         tk.Button(self.left_frame, text="Upload Image", command=self.upload_user_image, font=self.ui_font).grid(row=8, column=0, columnspan=6, pady=(5, 10), sticky="we")
-        tk.Button(self.left_frame, text="Preview Image", command=self.preview_image, font=self.ui_font).grid(row=9, column=0, columnspan=6, pady=(10, 2), sticky="we")
-        tk.Button(self.left_frame, text="Save Image", command=self.save_image, font=self.ui_font).grid(row=10, column=0, columnspan=6, sticky="we")
+
+        tk.Label(self.left_frame, text="Scale:", font=self.ui_font).grid(row=9, column=0, sticky="w")
+        self.scale_slider = tk.Scale(self.left_frame, from_=0.5, to=2, orient="horizontal", resolution=0.01, command=self.on_slider_move)
+        self.scale_slider.set(1)
+        self.scale_slider.grid(row=9, column=1, columnspan=5, sticky="we")
+
+        tk.Label(self.left_frame, text="X:", font=self.ui_font).grid(row=10, column=0, sticky="w")
+        self.x_slider = tk.Scale(self.left_frame, from_=-100, to=100, orient="horizontal", resolution=1, command=self.on_slider_move)
+        self.x_slider.set(0)
+        self.x_slider.grid(row=10, column=1, columnspan=5, sticky="we")
+
+        tk.Label(self.left_frame, text="Y:", font=self.ui_font).grid(row=11, column=0, sticky="w")
+        self.y_slider = tk.Scale(self.left_frame, from_=-100, to=100, orient="horizontal", resolution=1, command=self.on_slider_move)
+        self.y_slider.set(0)
+        self.y_slider.grid(row=11, column=1, columnspan=5, sticky="we")
+
+        tk.Button(self.left_frame, text="Preview Image", command=self.preview_image, font=self.ui_font).grid(row=12, column=0, columnspan=6, pady=(10, 2), sticky="we")
+        tk.Button(self.left_frame, text="Save Image", command=self.save_image, font=self.ui_font).grid(row=13, column=0, columnspan=6, sticky="we")
 
         # Right: Image preview
         self.canvas = tk.Label(self.right_frame)
@@ -111,6 +127,10 @@ class ImageGeneratorApp:
             self.user_image_path = filepath
             self.preview_image()
 
+    def on_slider_move(self, _):
+        return
+        self.preview_image()
+
     def generate_image(self):
         # Gather input data
         selected_family = self.family.get()
@@ -126,6 +146,9 @@ class ImageGeneratorApp:
         hptype = self.hpicon.get()
         ability_text = self.ability.get("1.0", "end-1c")
         flavor_text = self.flavor.get("1.0", "end-1c")
+        scale_adjust = self.scale_slider.get()
+        x_adjust = self.x_slider.get()
+        y_adjust = self.y_slider.get()
 
         faction = "Plants" if selected_family in ["Guardian", "Kabloom", "MegaGrow", "Smarty", "Solar"] else "Zombies"
 
@@ -207,13 +230,13 @@ class ImageGeneratorApp:
         if self.user_image_path:
             user_img = Image.open(self.user_image_path).convert("RGBA")
 
-            card_image_target_width = 250
+            card_image_target_width = int(250 * scale_adjust)
             scale = card_image_target_width / user_img.width
             card_image_new_height = int(user_img.height * scale)
 
             user_img = user_img.resize((card_image_target_width, card_image_new_height), Image.LANCZOS)
 
-            x_card_image, y_card_image = (w_bg - user_img.width) // 2, 100
+            x_card_image, y_card_image = (w_bg - user_img.width) // 2 + x_adjust, 100 + y_adjust
             base.paste(user_img, (x_card_image, y_card_image), mask=user_img)
 
         # Display card name
