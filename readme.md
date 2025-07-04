@@ -18,3 +18,5 @@ I have only tested the program on macOS so there is a small chance that it doesn
 ## Running the Program
 
 Run the app using Command Line/Terminal with ```python image_generator.py``` while in the folder containing ```generator.py```. Make sure the location of image assets is not changed relative to the Python script.
+
+![Sample usage](Sample.png)
