@@ -278,6 +278,9 @@ class ImageGeneratorApp:
         atk_resized = atk_icon.resize((w_icon, h_icon), Image.LANCZOS)
         hp_resized = hp_icon.resize((w_icon, h_icon), Image.LANCZOS)
 
+        if atktype == "Overshoot":
+            atk_resized = atk_icon.resize((int(w_icon * 1.4), int(h_icon * 1.4)), Image.LANCZOS)
+
         x_cost, y_cost = 400, 130
         x_atk, y_atk = (w_bg - w_icon) // 2 - 35, 300
         x_hp, y_hp = (w_bg - w_icon) // 2 + 35, 300
@@ -295,7 +298,11 @@ class ImageGeneratorApp:
 
         if selected_type == "Minion":
             base.paste(hp_resized, (x_hp, y_hp), mask=hp_resized)
-            base.paste(atk_resized, (x_atk, y_atk), mask=atk_resized)
+
+            if atktype == "Overshoot":
+                base.paste(atk_resized, (x_atk - 22, y_atk - 20), mask=atk_resized)
+            else:
+                base.paste(atk_resized, (x_atk, y_atk), mask=atk_resized)
 
             for dx in [-stroke_width, 0, stroke_width]:
                 for dy in [-stroke_width, 0, stroke_width]:
