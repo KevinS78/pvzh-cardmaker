@@ -4,7 +4,7 @@ A Python script for generating images of custom cards, in a format similar to as
 
 This script requires a reasonably up to date Python environment to function properly. I'm not good enough at Python to know exactly what versions are required, but following a reasonably recent tutorial for installing Python and PIL should do the job.
 
-I have only tested the program on macOS so there is a small chance that it doesn't work as expected on other systems.
+The script has been tested to run as expected on both macOS and Windows, but the UI may look different than in the sample screenshot.
 
 ## Requirements
 
