@@ -1,3 +1,4 @@
+import re
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import font as tkfont
@@ -9,6 +10,9 @@ ICON_PATH = "Icons/"
 RARITY_PATH = "Rarity/"
 FONT_PATH = "Cafeteria-Bold.otf"
 BACKGROUND_PATH = "Background.png"
+TOKEN_PATTERN = re.compile(r"(:[a-zA-Z0-9+\-]+:)|(\*\*.*?\*\*)")
+ICON_ID_PATTERN = re.compile(r"^([a-zA-Z]+)([0-9+\-]+)?$")
+ICON_SIZE = 32
 
 class ImageGeneratorApp:
     def __init__(self, root):
@@ -32,7 +36,6 @@ class ImageGeneratorApp:
         self.right_frame.pack(side="right", padx=10, pady=10)
 
         # --- Dropdowns and input fields ---
-
         tk.Label(self.left_frame, text="Class:", font=self.ui_font).grid(row=0, column=0, sticky="w")
         self.family = tk.StringVar()
         tk.OptionMenu(self.left_frame, self.family, "Guardian", "Kabloom", "MegaGrow", "Smarty", "Solar", "Beastly", "Brainy", "Crazy", "Hearty", "Sneaky").grid(row=0, column=1, sticky="w")
@@ -131,34 +134,95 @@ class ImageGeneratorApp:
         return
         self.preview_image()
 
-    def generate_image(self):
-        # Gather input data
-        selected_family = self.family.get()
-        selected_type = self.cardtype.get()
-        selected_rarity = self.rarity.get()
-        set_name = self.set.get().strip()
-        card_name = self.name.get().strip()
-        tribes = self.tribes.get().strip()
-        cost = self.cost.get().strip()
-        attack = self.atk.get().strip()
-        health = self.hp.get().strip()
-        atktype = self.atkicon.get()
-        hptype = self.hpicon.get()
-        ability_text = self.ability.get("1.0", "end-1c")
-        flavor_text = self.flavor.get("1.0", "end-1c")
-        scale_adjust = self.scale_slider.get()
-        x_adjust = self.x_slider.get()
-        y_adjust = self.y_slider.get()
+    def render_line_with_outline(self, draw, text, x, y, font, fill="white", outline_color="black", stroke_width=1, thin=False):
+        dx_arr = [-stroke_width, 0]
+        dy_arr = [-stroke_width, 0]
 
-        faction = "Plants" if selected_family in ["Guardian", "Kabloom", "MegaGrow", "Smarty", "Solar"] else "Zombies"
+        if not thin:
+            dx_arr.append(stroke_width)
+            dy_arr.append(stroke_width)
 
-        # Choose plant/zombie background based on class
-        card_bg = TEMPLATE_PATH + faction + ".png"
-        base = Image.open(card_bg).convert("RGBA")
-        w_bg, h_bg = base.size
-        draw = ImageDraw.Draw(base)
+        for dx in dx_arr:
+            for dy in dy_arr:
+                if dx != 0 or dy != 0:
+                    draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
 
-        # Generate template from class
+        draw.text((x, y), text, font=font, fill=fill)
+
+    def render_line_with_icons(self, base, line, y, draw, font, fill="white"):
+        segments = TOKEN_PATTERN.split(line)
+        content = []
+
+        total_width = 0
+        max_height = 0
+
+        for segment in segments:
+            if not segment:
+                continue
+            if segment.startswith(":") and segment.endswith(":"):
+                token = segment[1:-1]
+                match = ICON_ID_PATTERN.fullmatch(token)
+
+                if match:
+                    base_name, suffix = match.groups()
+                    icon_path = ICON_PATH + base_name + ".png"
+
+                    try:
+                        icon = Image.open(icon_path).convert("RGBA")
+                        scale = ICON_SIZE / icon.height
+                        icon = icon.resize((int(icon.width * scale), ICON_SIZE), Image.LANCZOS)
+
+                        if suffix:
+                            # Draw suffix text on top
+                            overlay = Image.new("RGBA", icon.size, (0, 0, 0, 0))
+                            overlay_draw = ImageDraw.Draw(overlay)
+                            font_suffix = ImageFont.truetype(FONT_PATH, 24)
+
+                            w_text = draw.textlength(suffix, font=font_suffix)
+                            h_text = font_suffix.getbbox(suffix)[3]
+                            tx = (icon.width - w_text) // 2
+                            ty = (icon.height - h_text) // 2 - 2
+                            self.render_line_with_outline(overlay_draw, suffix, tx, ty, font_suffix)
+
+                            icon = Image.alpha_composite(icon, overlay)
+
+                        content.append(("icon", icon))
+                        total_width += icon.width
+                        max_height = max(max_height, icon.height)
+                    except FileNotFoundError:
+                        content.append(("text", segment))
+                        total_width += draw.textlength(segment, font=font)
+                        max_height = max(max_height, font.getbbox(segment)[3])
+            elif segment.startswith("**") and segment.endswith("**"):
+                bold_text = segment[2:-2]
+                content.append(("bold", bold_text))
+                total_width += draw.textlength(bold_text, font=font)
+                max_height = max(max_height, font.getbbox(bold_text)[3])
+            else:
+                content.append(("text", segment))
+                total_width += draw.textlength(segment, font=font)
+                max_height = max(max_height, font.getbbox(segment)[3])
+
+        # Center the line
+        w_bg = base.width
+        x = (w_bg - total_width) // 2
+
+        for typ, obj in content:
+            if typ == "text":
+                draw.text((int(x), y), obj, font=font, fill=fill)
+                x += draw.textlength(obj, font=font)
+            elif typ == "bold":
+                self.render_line_with_outline(draw, obj, int(x), y, font, fill=fill, outline_color=fill, thin=True)
+                x += draw.textlength(obj, font=font)
+            elif typ == "icon":
+                base.paste(obj, (int(x), y), mask=obj)
+                x += obj.width
+
+        return int(max_height)
+    
+    def generate_class_template(self, base, selected_family):
+        w_bg = base.width
+
         body = Image.open(TEMPLATE_PATH + selected_family + ".png").convert("RGBA")
         top = Image.open(TEMPLATE_PATH + selected_family + "2.png").convert("RGBA")
         class_icon = Image.open(ICON_PATH + selected_family + ".png").convert("RGBA")
@@ -183,7 +247,9 @@ class ImageGeneratorApp:
         base.paste(top_resized, (x_top, y_top), mask=top_resized)
         base.paste(class_resized, (x_class, y_class), mask=class_resized)
 
-        # Add rarity banner
+    def generate_rarity_banner(self, base, draw, selected_rarity, set_name):
+        w_bg = base.width
+
         rarity_banner = Image.open(RARITY_PATH + selected_rarity + ".png").convert("RGBA")
 
         scale_rarity = 1.1
@@ -216,42 +282,33 @@ class ImageGeneratorApp:
             y_rarity_text += 2
             rarity_color = "#b2dcfc"
 
-        outline_color = "black"
-        stroke_width = 1
+        self.render_line_with_outline(draw, rarity_text, x_rarity_text, y_rarity_text, font_rarity, fill=rarity_color)
+    
+    def generate_card_image(self, base, scale_adjust, x_adjust, y_adjust):
+        user_img = Image.open(self.user_image_path).convert("RGBA")
+        w_bg = base.width
 
-        for dx in [-stroke_width, 0, stroke_width]:
-            for dy in [-stroke_width, 0, stroke_width]:
-                if dx != 0 or dy != 0:
-                    draw.text((x_rarity_text + dx, y_rarity_text + dy), rarity_text, font=font_rarity, fill=outline_color)
+        card_image_target_width = int(250 * scale_adjust)
+        scale = card_image_target_width / user_img.width
+        card_image_new_height = int(user_img.height * scale)
 
-        draw.text((x_rarity_text, y_rarity_text), rarity_text, font=font_rarity, fill=rarity_color)
+        user_img = user_img.resize((card_image_target_width, card_image_new_height), Image.LANCZOS)
 
-        # Add card image
-        if self.user_image_path:
-            user_img = Image.open(self.user_image_path).convert("RGBA")
+        x_card_image, y_card_image = (w_bg - user_img.width) // 2 + x_adjust, 100 + y_adjust
+        base.paste(user_img, (x_card_image, y_card_image), mask=user_img)
 
-            card_image_target_width = int(250 * scale_adjust)
-            scale = card_image_target_width / user_img.width
-            card_image_new_height = int(user_img.height * scale)
+    def generate_card_name(self, base, draw, card_name):
+        w_bg = base.width
 
-            user_img = user_img.resize((card_image_target_width, card_image_new_height), Image.LANCZOS)
-
-            x_card_image, y_card_image = (w_bg - user_img.width) // 2 + x_adjust, 100 + y_adjust
-            base.paste(user_img, (x_card_image, y_card_image), mask=user_img)
-
-        # Display card name
         font_name = ImageFont.truetype(FONT_PATH, 60)
         w_name = draw.textlength(card_name, font=font_name)
         x_name, y_name = (w_bg - w_name) // 2, 380
 
-        for dx in [-stroke_width, 0, stroke_width]:
-            for dy in [-stroke_width, 0, stroke_width]:
-                if dx != 0 or dy != 0:
-                    draw.text((x_name + dx, y_name + dy), card_name, font=font_name, fill=outline_color)
+        self.render_line_with_outline(draw, card_name, x_name, y_name, font_name)
 
-        draw.text((x_name, y_name), card_name, font=font_name, fill="white")
+    def generate_tribes(self, base, draw, tribes, selected_type, faction):
+        w_bg = base.width
 
-        # Display tribes
         font_tribes = ImageFont.truetype(FONT_PATH, 30)
         tribes_text = tribes
         if selected_type == "Minion":
@@ -265,7 +322,9 @@ class ImageGeneratorApp:
         x_tribes, y_tribes = (w_bg - w_tribes) // 2, 450
         draw.text((x_tribes, y_tribes), tribes_text, font=font_tribes, fill="#9c9c9c")
 
-        # Display stats
+    def generate_stats(self, base, draw, cost, attack, health, atktype, hptype, selected_type, faction):
+        w_bg = base.width
+
         cost_icon = Image.open(ICON_PATH + ("Sun" if faction == "Plants" else "Brain") + ".png").convert("RGBA")
         atk_icon = Image.open(ICON_PATH + ("Strength" if atktype == "Normal" else atktype) + ".png").convert("RGBA")
         hp_icon = Image.open(ICON_PATH + ("Health" if hptype == "Normal" else hptype) + ".png").convert("RGBA")
@@ -298,13 +357,7 @@ class ImageGeneratorApp:
 
         if selected_type == "Minion":
             base.paste(hp_resized, (x_hp, y_hp), mask=hp_resized)
-
-            for dx in [-stroke_width, 0, stroke_width]:
-                for dy in [-stroke_width, 0, stroke_width]:
-                    if dx != 0 or dy != 0:
-                        draw.text((x_hp_text + dx, y_hp_text + dy), health, font=font_icon, fill=outline_color)
-
-            draw.text((x_hp_text, y_hp_text), health, font=font_icon, fill="white")
+            self.render_line_with_outline(draw, health, x_hp_text, y_hp_text, font_icon)
 
             if attack != "0":
                 if atktype == "Overshoot":
@@ -312,47 +365,87 @@ class ImageGeneratorApp:
                 else:
                     base.paste(atk_resized, (x_atk, y_atk), mask=atk_resized)
 
-                for dx in [-stroke_width, 0, stroke_width]:
-                    for dy in [-stroke_width, 0, stroke_width]:
-                        if dx != 0 or dy != 0:
-                            draw.text((x_atk_text + dx, y_atk_text + dy), attack, font=font_icon, fill=outline_color)
-                
-                draw.text((x_atk_text, y_atk_text), attack, font=font_icon, fill="white")
+                self.render_line_with_outline(draw, attack, x_atk_text, y_atk_text, font_icon)
 
-        # Display ability text
+    def generate_ability_text(self, base, draw, ability_text):
+        w_bg = base.width
         font_ability = ImageFont.truetype(FONT_PATH, 30)
         ability_lines = ability_text.splitlines()
         y_ability = 490
         line_spacing = 10
 
         for line in ability_lines:
-            w_line = draw.textlength(line, font=font_ability)
-            x_line = (w_bg - w_line) // 2
-            draw.text((x_line, y_ability), line, font=font_ability, fill="white")
+            line_height = self.render_line_with_icons(base, line, y_ability, draw, font_ability)
+            y_ability += line_height + line_spacing
 
-            bbox = font_ability.getbbox(line)
-            h_line = bbox[3] - bbox[1]
-            y_ability += h_line + line_spacing
+    def generate_flavor_text(self, base, draw, flavor_text):
+        w_bg = base.width
 
-        # Display flavor text
         font_flavor = ImageFont.truetype(FONT_PATH, 30)
         flavor_lines = flavor_text.splitlines()
         y_flavor = 800
+        line_spacing = 10
 
         for line in flavor_lines:
             w_line = draw.textlength(line, font=font_flavor)
             x_line = (w_bg - w_line) // 2
 
-            for dx in [-stroke_width, 0, stroke_width]:
-                for dy in [-stroke_width, 0, stroke_width]:
-                    if dx != 0 or dy != 0:
-                        draw.text((x_line + dx, y_flavor + dy), line, font=font_flavor, fill=outline_color)
-
-            draw.text((x_line, y_flavor), line, font=font_flavor, fill="white")
+            self.render_line_with_outline(draw, line, x_line, y_flavor, font_flavor)
 
             bbox = font_flavor.getbbox(line)
             h_line = bbox[3] - bbox[1]
             y_flavor += h_line + line_spacing
+
+    def generate_image(self):
+        # Gather input data
+        selected_family = self.family.get()
+        selected_type = self.cardtype.get()
+        selected_rarity = self.rarity.get()
+        set_name = self.set.get().strip()
+        card_name = self.name.get().strip()
+        tribes = self.tribes.get().strip()
+        cost = self.cost.get().strip()
+        attack = self.atk.get().strip()
+        health = self.hp.get().strip()
+        atktype = self.atkicon.get()
+        hptype = self.hpicon.get()
+        ability_text = self.ability.get("1.0", "end-1c")
+        flavor_text = self.flavor.get("1.0", "end-1c")
+        scale_adjust = self.scale_slider.get()
+        x_adjust = self.x_slider.get()
+        y_adjust = self.y_slider.get()
+
+        faction = "Plants" if selected_family in ["Guardian", "Kabloom", "MegaGrow", "Smarty", "Solar"] else "Zombies"
+
+        # Choose plant/zombie background based on class
+        card_bg = TEMPLATE_PATH + faction + ".png"
+        base = Image.open(card_bg).convert("RGBA")
+        draw = ImageDraw.Draw(base)
+
+        # Generate template from class
+        self.generate_class_template(base, selected_family)
+
+        # Display rarity banner
+        self.generate_rarity_banner(base, draw, selected_rarity, set_name)
+
+        # Display card image
+        if self.user_image_path:
+            self.generate_card_image(base, scale_adjust, x_adjust, y_adjust)
+
+        # Display card name
+        self.generate_card_name(base, draw, card_name)
+
+        # Display tribes
+        self.generate_tribes(base, draw, tribes, selected_type, faction)
+
+        # Display stats
+        self.generate_stats(base, draw, cost, attack, health, atktype, hptype, selected_type, faction)
+
+        # Display ability text
+        self.generate_ability_text(base, draw, ability_text)
+
+        # Display flavor text
+        self.generate_flavor_text(base, draw, flavor_text)
 
         return base
 
