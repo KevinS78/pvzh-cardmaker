@@ -182,7 +182,11 @@ class ImageGeneratorApp:
                             h_text = font_suffix.getbbox(suffix)[3]
                             tx = (icon.width - w_text) // 2
                             ty = (icon.height - h_text) // 2 - 2
-                            self.render_line_with_outline(overlay_draw, suffix, tx, ty, font_suffix)
+
+                            if base_name == "Sun" or base_name == "Brain":
+                                overlay_draw.text((tx, ty), suffix, font=font_suffix, fill="black")
+                            else:
+                                self.render_line_with_outline(overlay_draw, suffix, tx, ty, font_suffix)
 
                             icon = Image.alpha_composite(icon, overlay)
 
